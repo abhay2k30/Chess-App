@@ -12,11 +12,13 @@
   "dependencies": {
     "@tailwindcss/vite": "^4.1.18",
     "chess.js": "^1.4.0",
+    "lucide-react": "^1.8.0",
     "react": "^19.2.0",
     "react-chessboard": "^5.8.6",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.0",
-    "tailwindcss": "^4.1.18"
+    "tailwindcss": "^4.1.18",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

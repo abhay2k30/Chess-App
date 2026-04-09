@@ -1,16 +1,16 @@
-const { Chess } = require("chess.js");
-const { INIT_GAME, MOVE, GAME_OVER } = require("./Messages");
+const { Chess, Move } = require("chess.js");
+const { INIT_GAME, MOVE, GAME_OVER, ERROR } = require("./Messages");
 
 class Game {
-    constructor(player1, player2) {
-        this.player1 = player1;
-        this.player2 = player2;
+    constructor(socket1,socket2) {
+        this.gameID = crypto.randomUUID()
+        this.player1Id = socket1.userID
+        this.player2Id = socket2.userID
         this.board = new Chess();
-        this.startTime = new Date();
+        // this.startTime = new Date(); // have't figured out how to implement timer
         this.moveCount = 0;
         this.gameOver = false;
-
-        this.player1.send(
+        socket1.send(
             JSON.stringify({
                 type: INIT_GAME,
                 payload: {
@@ -18,7 +18,7 @@ class Game {
                 },
             }),
         );
-        this.player2.send(
+        socket2.send(
             JSON.stringify({
                 type: INIT_GAME,
                 payload: {
@@ -27,73 +27,57 @@ class Game {
             }),
         );
     }
-    endgame(socket) {
+    endgame(userID) {
         this.gameOver = true
-        // check winner and sed to both parites
-        const winner = this.player1 === socket ? this.player2 : this.player1
-        winner.send(JSON.stringify({
+        // check winner and send to both parites
+        const winner = userID === "draw" ? "draw" : this.player1Id === userID ? "black" : "white";
+        return {
             type : GAME_OVER,
-            winner : winner,
-            reason : "opponent resigned or left"
-        }))
+            winner : winner
+         }
     }
 
     makeMove(socket, move) {
         if (this.gameOver) {
-            return
+            return {
+                type : ERROR
+            }
         }
         // turn enforcement
-        if (this.moveCount % 2 === 0 && socket !== this.player1) {
-            return;
+        if (this.moveCount % 2 === 0 && socket.userID !== this.player1Id) {
+            return {
+                type : ERROR
+            };
         }
-        if (this.moveCount % 2 === 1 && socket !== this.player2) {
-            return;
-        }
-        if (this.gameOver) {
-            return;
+        if (this.moveCount % 2 === 1 && socket.userID !== this.player2Id) {
+            return {
+                type : ERROR
+            };
         }
 
         try {
             this.board.move(move);
         } catch (e) {
             console.log(e);
-            return;
+            return {
+                type : ERROR
+            };
         }
+        this.moveCount++
 
         if (this.board.isGameOver()) {
-            // Send the game over message to both players
-            const winner = this.board.turn() === "w" ? "black" : "white";
             this.gameOver = true;
-            this.player1.send(
-                JSON.stringify({
-                    type: GAME_OVER,
-                    payload: { winner },
-                }),
-            );
-            this.player2.send(
-                JSON.stringify({
-                    type: GAME_OVER,
-                    payload: { winner },
-                }),
-            );
-            return;
+            const winner = this.board.isDraw() ? "draw" : this.player1Id === socket.userID ? "white" : "black";
+            return {
+                type : GAME_OVER,
+                winner : winner
+            };
         }
-
-        this.player2.send(
-            JSON.stringify({
-                type: MOVE,
-                payload: move,
-                board: this.board.fen(),
-            }),
-        );
-        this.player1.send(
-            JSON.stringify({
-                type: MOVE,
-                payload: move,
-                board: this.board.fen(),
-            }),
-        );
-        this.moveCount++;
+        return {
+            type : MOVE,
+            move : move,
+            board : this.board.fen()
+        };
     }
 }
 
